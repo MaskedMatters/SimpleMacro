@@ -133,6 +133,53 @@ def mouse_position_dialog(root, font):
         return result['x'], result['y']
     return None, None
 
+def action_type_dialog(root, font):
+    result = {}  # value can be str
+    dialog = tk.Toplevel(root)
+    dialog.title("Add Action")
+    dialog.configure(bg="#23272f")
+    dialog.grab_set()
+    dialog.resizable(False, False)
+    dialog.transient(root)
+    dialog.geometry(f"400x300+{root.winfo_x()+60}+{root.winfo_y()+60}")
+
+    ttk.Label(dialog, text="Select action type:", style='TLabel', font=(font, 12)).pack(pady=(18, 8))
+    
+    action_types = ['key', 'mouse_move', 'mouse_click', 'type_string']
+    
+    # Create listbox for action types
+    listbox = tk.Listbox(dialog, font=(font, 12), bg="#282a36", fg="#f8f8f2", selectbackground="#44475a", selectforeground="#8be9fd", borderwidth=0, highlightthickness=0, height=6)
+    listbox.pack(pady=(0, 10), padx=20, fill=tk.BOTH, expand=True)
+    
+    # Add action types to listbox
+    for action_type in action_types:
+        listbox.insert(tk.END, action_type)
+    
+    # Select first item by default
+    listbox.selection_set(0)
+    listbox.focus_set()
+
+    def on_ok():
+        selection = listbox.curselection()
+        if selection:
+            result['action_type'] = listbox.get(selection[0])
+        dialog.destroy()
+
+    def on_cancel():
+        dialog.destroy()
+
+    btn_frame = ttk.Frame(dialog, style='TFrame')
+    btn_frame.pack(pady=(0, 10))
+    ok_btn = ttk.Button(btn_frame, text="OK", command=on_ok, style='TButton')
+    ok_btn.pack(side=tk.LEFT, padx=(0, 10))
+    cancel_btn = ttk.Button(btn_frame, text="Cancel", command=on_cancel, style='TButton')
+    cancel_btn.pack(side=tk.LEFT)
+
+    dialog.bind('<Return>', lambda e: on_ok())
+    dialog.bind('<Escape>', lambda e: on_cancel())
+    dialog.wait_window()
+    return result.get('action_type', None)
+
 # --- Macro Logic ---
 class MacroApp:
     def __init__(self, root):
@@ -166,6 +213,8 @@ class MacroApp:
         style.configure('TButton', font=(preferred_font, 11), padding=6, background="#44475a", foreground="#f8f8f2", borderwidth=0, relief="flat")
         style.map('TButton', background=[('active', '#6272a4')])
         style.configure('TListbox', font=(preferred_font, 11), background="#282a36", foreground="#f8f8f2")
+        style.configure('TCombobox', font=(preferred_font, 12), background="#282a36", foreground="#f8f8f2", fieldbackground="#282a36", selectbackground="#44475a", selectforeground="#8be9fd")
+        style.map('TCombobox', fieldbackground=[('readonly', '#282a36')], selectbackground=[('readonly', '#44475a')])
 
         # --- Layout ---
         main_frame = ttk.Frame(root, padding=20, style='TFrame')
@@ -189,6 +238,14 @@ class MacroApp:
         scrollbar = ttk.Scrollbar(actions_frame, orient="vertical", command=self.actions_listbox.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.actions_listbox.config(yscrollcommand=scrollbar.set)
+        
+        # Drag and drop variables
+        self.drag_data = {'item': None, 'x': 0, 'y': 0}
+        
+        # Bind drag and drop events
+        self.actions_listbox.bind('<Button-1>', self.on_click)
+        self.actions_listbox.bind('<B1-Motion>', self.on_drag)
+        self.actions_listbox.bind('<ButtonRelease-1>', self.on_release)
 
         btns_frame = ttk.Frame(main_frame, style='TFrame')
         btns_frame.pack(fill=tk.X, pady=(5, 10))
@@ -233,7 +290,7 @@ class MacroApp:
             return str(key)
 
     def add_action(self):
-        action_type = custom_input_dialog(self.root, "Add Action", "Type: 'key', 'mouse_move', or 'mouse_click'", self.preferred_font)
+        action_type = action_type_dialog(self.root, self.preferred_font)
         if not action_type:
             return
         action_type = action_type.strip().lower()
@@ -250,6 +307,11 @@ class MacroApp:
         elif action_type == 'mouse_click':
             self.actions.append(('mouse_click', None))
             self.actions_listbox.insert(tk.END, "Mouse click")
+        elif action_type == 'type_string':
+            string_to_type = custom_input_dialog(self.root, "Type String", "Enter the text to type:", self.preferred_font)
+            if string_to_type:
+                self.actions.append(('type_string', string_to_type))
+                self.actions_listbox.insert(tk.END, f"Type: '{string_to_type}'")
         else:
             custom_message_dialog(self.root, "Invalid Action", "Unknown action type.", self.preferred_font, error=True)
 
@@ -266,6 +328,49 @@ class MacroApp:
             idx = sel[0]
             self.actions_listbox.delete(idx)
             del self.actions[idx]
+
+    def on_click(self, event):
+        """Handle mouse click to start drag"""
+        self.drag_data['x'] = event.x
+        self.drag_data['y'] = event.y
+        
+    def on_drag(self, event):
+        """Handle mouse drag"""
+        if self.drag_data['item'] is None:
+            # Start drag
+            selection = self.actions_listbox.curselection()
+            if selection:
+                self.drag_data['item'] = selection[0]
+        else:
+            # Continue drag
+            pass
+            
+    def on_release(self, event):
+        """Handle mouse release to complete drag and drop"""
+        if self.drag_data['item'] is not None:
+            # Get the target position
+            target_index = self.actions_listbox.nearest(event.y)
+            
+            # Only move if target is different
+            if target_index != self.drag_data['item']:
+                # Get the action to move
+                action_to_move = self.actions[self.drag_data['item']]
+                action_text = self.actions_listbox.get(self.drag_data['item'])
+                
+                # Remove from old position
+                del self.actions[self.drag_data['item']]
+                self.actions_listbox.delete(self.drag_data['item'])
+                
+                # Insert at new position
+                self.actions.insert(target_index, action_to_move)
+                self.actions_listbox.insert(target_index, action_text)
+                
+                # Select the moved item
+                self.actions_listbox.selection_clear(0, tk.END)
+                self.actions_listbox.selection_set(target_index)
+            
+            # Reset drag data
+            self.drag_data['item'] = None
 
     def start_macro_listener(self):
         if not self.trigger_key:
@@ -315,6 +420,9 @@ class MacroApp:
                 pyautogui.moveTo(x, y)
             elif action_type == 'mouse_click':
                 pyautogui.click()
+            elif action_type == 'type_string':
+                # param is the string to type
+                kbd_ctrl.type(param)
             time.sleep(0.1)
 
     def on_close(self):

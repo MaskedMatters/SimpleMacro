@@ -201,9 +201,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.
-
-# Compiling VENVS
-bin/
-lib64
-include/
-pyvenv.cfg

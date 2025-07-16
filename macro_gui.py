@@ -5,6 +5,8 @@ import pyautogui
 import threading
 import time
 
+VERSION = "v0.1.0p-beta"
+
 # --- Custom Dialogs ---
 def custom_input_dialog(root, title, prompt, font, input_type='string'):
     result = {}  # value can be int or str
@@ -374,6 +376,7 @@ class MacroApp:
         self.listener = None
         self.running = False
         self.currently_pressed = set()  # Track currently pressed keys
+        self.triggered = False  # Only trigger once per press
 
         # Try to use Inter, fallback to Segoe UI, then Arial Rounded MT Bold
         preferred_font = None
@@ -403,7 +406,7 @@ class MacroApp:
         main_frame = ttk.Frame(root, padding=20, style='TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(main_frame, text="Simple Macro v0.0.3p-beta", style='Header.TLabel').pack(pady=(0, 10))
+        ttk.Label(main_frame, text=f"Simple Macro {VERSION}", style='Header.TLabel').pack(pady=(0, 10))
 
         trigger_frame = ttk.Frame(main_frame, style='TFrame')
         trigger_frame.pack(fill=tk.X, pady=(0, 10))
@@ -588,12 +591,17 @@ class MacroApp:
             return
         self.currently_pressed.add(key)
         if self.keys_match_combination(self.currently_pressed, self.trigger_key):
-            threading.Thread(target=self.run_macro, daemon=True).start()
+            if not self.triggered:
+                self.triggered = True
+                threading.Thread(target=self.run_macro, daemon=True).start()
 
     def on_global_key_release(self, key):
         if not self.running:
             return
         self.currently_pressed.discard(key)
+        # Reset the trigger if any trigger key is released
+        if not self.keys_match_combination(self.currently_pressed, self.trigger_key):
+            self.triggered = False
 
     def update_currently_pressed_display(self):
         if self.currently_pressed:

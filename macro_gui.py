@@ -366,7 +366,7 @@ def single_key_dialog(root, font):
 class MacroApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Macro GUI")
+        self.root.title("SimpleMacro")
         self.root.geometry("420x600")
         self.root.configure(bg="#23272f")
         self.trigger_key = None
@@ -403,7 +403,7 @@ class MacroApp:
         main_frame = ttk.Frame(root, padding=20, style='TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(main_frame, text="Macro Builder", style='Header.TLabel').pack(pady=(0, 10))
+        ttk.Label(main_frame, text="Simple Macro v0.0.3p-beta", style='Header.TLabel').pack(pady=(0, 10))
 
         trigger_frame = ttk.Frame(main_frame, style='TFrame')
         trigger_frame.pack(fill=tk.X, pady=(0, 10))

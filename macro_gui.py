@@ -141,7 +141,7 @@ def action_type_dialog(root, font):
     dialog.grab_set()
     dialog.resizable(False, False)
     dialog.transient(root)
-    dialog.geometry(f"400x300+{root.winfo_x()+60}+{root.winfo_y()+60}")
+    dialog.geometry(f"480x280+{root.winfo_x()+60}+{root.winfo_y()+60}")
 
     ttk.Label(dialog, text="Select action type:", style='TLabel', font=(font, 12)).pack(pady=(18, 8))
     
@@ -180,6 +180,188 @@ def action_type_dialog(root, font):
     dialog.wait_window()
     return result.get('action_type', None)
 
+def key_combination_dialog(root, font):
+    """Dialog for recording key combinations with live display"""
+    result = {'combination': []}
+    dialog = tk.Toplevel(root)
+    dialog.title("Record Key Combination")
+    dialog.configure(bg="#23272f")
+    dialog.grab_set()
+    dialog.resizable(False, False)
+    dialog.transient(root)
+    dialog.geometry(f"460x260+{root.winfo_x()+60}+{root.winfo_y()+60}")
+
+    # Title
+    ttk.Label(dialog, text="Recording Key Combination", style='Header.TLabel', font=(font, 14, "bold"), foreground="#8be9fd", background="#23272f").pack(pady=(18, 5))
+    
+    # Instructions
+    ttk.Label(dialog, text="Press the keys for your combination.", style='TLabel', font=(font, 11), foreground="#f8f8f2", background="#23272f").pack(pady=(0, 15))
+    
+    # Live display of combination
+    combination_label = tk.Label(dialog, text="No keys pressed yet", font=(font, 12), bg="#23272f", fg="#ffb86c", wraplength=460)
+    combination_label.pack(pady=(0, 15))
+    
+    # Status label
+    status_label = tk.Label(dialog, text="Press keys now...", font=(font, 10), bg="#23272f", fg="#50fa7b", wraplength=460, justify="center")
+    status_label.pack(pady=(0, 35))
+
+    # Button frame
+    btn_frame = ttk.Frame(dialog, style='TFrame')
+    btn_frame.pack(pady=(0, 25))
+    done_btn = ttk.Button(btn_frame, text="Done", command=lambda: on_done(), style='TButton')
+    done_btn.pack(side=tk.LEFT, padx=(0, 15))
+    cancel_btn = ttk.Button(btn_frame, text="Cancel", command=lambda: on_cancel(), style='TButton')
+    cancel_btn.pack(side=tk.LEFT)
+
+    # Key tracking
+    pressed_keys = set()
+    key_names = []
+    recorded_keys = []  # Store the actual key objects
+    
+    def update_display():
+        if key_names:
+            display_text = " + ".join(key_names)
+            combination_label.config(text=display_text)
+        else:
+            combination_label.config(text="No keys pressed yet")
+    
+    def on_key_press(key):
+        if key not in pressed_keys:
+            pressed_keys.add(key)
+            key_name = get_key_display_name(key)
+            if key_name not in key_names:
+                key_names.append(key_name)
+                recorded_keys.append(key)  # Store the actual key object
+            update_display()
+            status_label.config(text=f"Added: {key_name}")
+    
+    def on_key_release(key):
+        if key in pressed_keys:
+            pressed_keys.remove(key)
+            # Don't remove from key_names or recorded_keys to allow for combination recording
+    
+    def get_key_display_name(key):
+        """Convert key to readable display name"""
+        if isinstance(key, keyboard.KeyCode):
+            if key.char:
+                return key.char.upper()
+            else:
+                return f"Key({key.vk})"
+        else:
+            # Handle special keys
+            key_str = str(key)
+            if key_str.startswith('Key.'):
+                return key_str[4:].title()  # Remove 'Key.' prefix and capitalize
+            return key_str
+    
+    def on_done():
+        if recorded_keys:
+            result['combination'] = recorded_keys
+            dialog.destroy()
+        else:
+            status_label.config(text="Please press at least one key", fg="#ff5555")
+    
+    def on_cancel():
+        dialog.destroy()
+    
+    # Start listening for keys
+    listener = keyboard.Listener(on_press=on_key_press, on_release=on_key_release)
+    listener.start()
+    
+    # Focus the dialog
+    dialog.focus_set()
+    
+    dialog.wait_window()
+    listener.stop()
+    
+    return result.get('combination', [])
+
+def single_key_dialog(root, font):
+    """Dialog for recording a single key with live display"""
+    result = {'key': None}
+    dialog = tk.Toplevel(root)
+    dialog.title("Record Single Key")
+    dialog.configure(bg="#23272f")
+    dialog.grab_set()
+    dialog.resizable(False, False)
+    dialog.transient(root)
+    dialog.geometry(f"460x260+{root.winfo_x()+60}+{root.winfo_y()+60}")
+
+    # Title
+    ttk.Label(dialog, text="Recording Single Key", style='Header.TLabel', font=(font, 14, "bold"), foreground="#8be9fd", background="#23272f").pack(pady=(18, 5))
+    
+    # Instructions
+    ttk.Label(dialog, text="Press any key to record it.", style='TLabel', font=(font, 11), foreground="#f8f8f2", background="#23272f").pack(pady=(0, 15))
+    
+    # Live display of key
+    key_label = tk.Label(dialog, text="No key pressed yet", font=(font, 12), bg="#23272f", fg="#ffb86c", wraplength=450)
+    key_label.pack(pady=(0, 15))
+    
+    # Status label
+    status_label = tk.Label(dialog, text="Press any key now...", font=(font, 10), bg="#23272f", fg="#50fa7b", wraplength=450, justify="center")
+    status_label.pack(pady=(0, 35))
+
+    # Button frame
+    btn_frame = ttk.Frame(dialog, style='TFrame')
+    btn_frame.pack(pady=(0, 25))
+    done_btn = ttk.Button(btn_frame, text="Done", command=lambda: on_done(), style='TButton')
+    done_btn.pack(side=tk.LEFT, padx=(0, 15))
+    cancel_btn = ttk.Button(btn_frame, text="Cancel", command=lambda: on_cancel(), style='TButton')
+    cancel_btn.pack(side=tk.LEFT)
+
+    recorded_key = None
+    
+    def update_display():
+        if recorded_key:
+            key_name = get_key_display_name(recorded_key)
+            key_label.config(text=f"Recorded: {key_name}")
+            status_label.config(text="Key recorded! Press another key to change.", fg="#50fa7b")
+        else:
+            key_label.config(text="No key pressed yet")
+            status_label.config(text="Press any key now...", fg="#50fa7b")
+    
+    def get_key_display_name(key):
+        """Convert key to readable display name"""
+        if isinstance(key, keyboard.KeyCode):
+            if key.char:
+                return key.char.upper()
+            else:
+                return f"Key({key.vk})"
+        else:
+            # Handle special keys
+            key_str = str(key)
+            if key_str.startswith('Key.'):
+                return key_str[4:].title()  # Remove 'Key.' prefix and capitalize
+            return key_str
+    
+    def on_key_press(key):
+        nonlocal recorded_key
+        # Allow recording any key, including Space, Backspace, Enter, Escape, etc.
+        recorded_key = key
+        update_display()
+    
+    def on_done():
+        if recorded_key:
+            result['key'] = recorded_key
+            dialog.destroy()
+        else:
+            status_label.config(text="Please press a key first", fg="#ff5555")
+    
+    def on_cancel():
+        dialog.destroy()
+    
+    # Start listening for keys
+    listener = keyboard.Listener(on_press=on_key_press)
+    listener.start()
+    
+    # Focus the dialog
+    dialog.focus_set()
+    
+    dialog.wait_window()
+    listener.stop()
+    
+    return result.get('key', None)
+
 # --- Macro Logic ---
 class MacroApp:
     def __init__(self, root):
@@ -191,6 +373,7 @@ class MacroApp:
         self.actions = []  # List of (action_type, params)
         self.listener = None
         self.running = False
+        self.currently_pressed = set()  # Track currently pressed keys
 
         # Try to use Inter, fallback to Segoe UI, then Arial Rounded MT Bold
         preferred_font = None
@@ -265,23 +448,30 @@ class MacroApp:
 
     # --- GUI Actions ---
     def set_trigger_key(self):
-        custom_message_dialog(self.root, "Set Trigger Key", "After closing this dialog, press the key you want to use as the macro trigger.", self.preferred_font)
-        self.root.withdraw()
-        key = self.wait_for_key()
-        self.root.deiconify()
-        if key:
-            self.trigger_key = key
-            self.trigger_label.config(text=f"Trigger Key: {self.key_to_str(key)}")
+        combination = key_combination_dialog(self.root, self.preferred_font)
+        if combination:
+            self.trigger_key = combination
+            self.trigger_label.config(text=f"Trigger Keys: {self.combination_to_str(combination)}")
 
-    def wait_for_key(self):
-        key_pressed = {'key': None}
-        def on_press(key):
-            key_pressed['key'] = key
-            listener.stop()  # Stop listener after key is pressed
-            # Do not return anything (None)
-        with keyboard.Listener(on_press=on_press) as listener:
-            listener.join()
-        return key_pressed['key']
+    def combination_to_str(self, combination):
+        """Convert key combination to readable string"""
+        if not combination:
+            return "None"
+        key_names = []
+        for key in combination:
+            if isinstance(key, keyboard.KeyCode):
+                if key.char:
+                    key_names.append(key.char.upper())
+                else:
+                    key_names.append(f"Key({key.vk})")
+            else:
+                # Handle special keys
+                key_str = str(key)
+                if key_str.startswith('Key.'):
+                    key_names.append(key_str[4:].title())  # Remove 'Key.' prefix and capitalize
+                else:
+                    key_names.append(key_str)
+        return " + ".join(key_names)
 
     def key_to_str(self, key):
         if isinstance(key, keyboard.KeyCode):
@@ -316,10 +506,7 @@ class MacroApp:
             custom_message_dialog(self.root, "Invalid Action", "Unknown action type.", self.preferred_font, error=True)
 
     def get_key_from_user(self):
-        custom_message_dialog(self.root, "Key Press", "After closing this dialog, press the key you want to add as an action.", self.preferred_font)
-        self.root.withdraw()
-        key = self.wait_for_key()
-        self.root.deiconify()
+        key = single_key_dialog(self.root, self.preferred_font)
         return key
 
     def remove_action(self):
@@ -380,7 +567,8 @@ class MacroApp:
             custom_message_dialog(self.root, "No Actions", "Please add at least one action.", self.preferred_font, error=True)
             return
         self.running = True
-        self.listener = keyboard.Listener(on_press=self.on_global_key)
+        self.currently_pressed.clear()  # Clear any existing pressed keys
+        self.listener = keyboard.Listener(on_press=self.on_global_key, on_release=self.on_global_key_release)
         self.listener.start()
         self.start_macro_btn.config(state=tk.DISABLED)
         self.stop_macro_btn.config(state=tk.NORMAL)
@@ -391,12 +579,44 @@ class MacroApp:
         if self.listener:
             self.listener.stop()
             self.listener = None
+        self.currently_pressed.clear()
         self.start_macro_btn.config(state=tk.NORMAL)
         self.stop_macro_btn.config(state=tk.DISABLED)
 
     def on_global_key(self, key):
-        if self.running and self.keys_match(key, self.trigger_key):
+        if not self.running:
+            return
+        self.currently_pressed.add(key)
+        if self.keys_match_combination(self.currently_pressed, self.trigger_key):
             threading.Thread(target=self.run_macro, daemon=True).start()
+
+    def on_global_key_release(self, key):
+        if not self.running:
+            return
+        self.currently_pressed.discard(key)
+
+    def update_currently_pressed_display(self):
+        if self.currently_pressed:
+            display_text = " + ".join([self.key_to_str(k) for k in self.currently_pressed])
+            self.trigger_label.config(text=f"Trigger Keys: {display_text}")
+        else:
+            self.trigger_label.config(text="Trigger Key: None")
+
+    def keys_match_combination(self, pressed_keys, combination):
+        """Check if all keys in the combination are currently pressed"""
+        if not combination or not pressed_keys:
+            return False
+        
+        # Check if all keys in the combination are currently pressed
+        for combo_key in combination:
+            key_found = False
+            for pressed_key in pressed_keys:
+                if self.keys_match(pressed_key, combo_key):
+                    key_found = True
+                    break
+            if not key_found:
+                return False
+        return True
 
     def keys_match(self, key1, key2):
         # Compare Key or KeyCode
